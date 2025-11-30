@@ -39,6 +39,35 @@ jobs:
             echo "labels=$LABELS" >> $GITHUB_OUTPUT
           fi
           
+      - name: Ensure labels exist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labelsToEnsure = ['bug', 'feature'];
+            for (const labelName of labelsToEnsure) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: labelName
+                });
+                console.log(`Label "${labelName}" already exists`);
+              } catch (error) {
+                if (error.status === 404) {
+                  console.log(`Creating label "${labelName}"`);
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: labelName,
+                    color: labelName === 'bug' ? 'd73a4a' : '0e8a16',
+                    description: labelName === 'bug' ? 'Something isn\'t working' : 'New feature or request'
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+          
       - name: Add labels to issue
         if: steps.check_keywords.outputs.labels
         uses: actions/github-script@v7
