@@ -1,0 +1,53 @@
+name: Label Issues
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  label-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check issue content for keywords
+        id: check_keywords
+        run: |
+          ISSUE_TITLE="${{ github.event.issue.title }}"
+          ISSUE_BODY="${{ github.event.issue.body }}"
+          COMBINED="$ISSUE_TITLE $ISSUE_BODY"
+          
+          # Convert to lowercase for case-insensitive matching
+          COMBINED_LOWER=$(echo "$COMBINED" | tr '[:upper:]' '[:lower:]')
+          
+          # Initialize labels
+          LABELS=""
+          
+          # Check for "error" keyword
+          if [[ $COMBINED_LOWER == *"error"* ]]; then
+            LABELS="bug"
+          fi
+          
+          # Check for "add" keyword  
+          if [[ $COMBINED_LOWER == *"add"* ]]; then
+            if [ -n "$LABELS" ]; then
+              LABELS="$LABELS,feature"
+            else
+              LABELS="feature"
+            fi
+          fi
+          
+          # Output labels if any
+          if [ -n "$LABELS" ]; then
+            echo "labels=$LABELS" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Add labels to issue
+        if: steps.check_keywords.outputs.labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = '${{ steps.check_keywords.outputs.labels }}'.split(',');
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: labels
+            });
